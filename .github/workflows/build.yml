@@ -104,18 +104,18 @@ jobs:
 
             - name: Flutter Build Release Apk
               if: ${{ github.event_name == 'workflow_dispatch' }}
-              run: flutter build apk --release --split-per-abi --dart-define-from-file=pili_release.json
+              run: flutter build apk --release --split-per-abi
 
             - name: Flutter Build Dev Apk
-              if: ${{ github.event_name == 'pull_request' }}
+              if: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
               run: |
-                  flutter build apk --release --split-per-abi --android-project-arg dev=1 --pub
+                  flutter build apk --release --split-per-abi
 
             - name: Rename
               run: |
                   for file in build/app/outputs/flutter-apk/app-*-release.apk; do
                     abi=$(echo "$file" | sed -E 's|.*app-(.*)-release\.apk|\1|')
-                    mv "$file" "PiliPlus_android_${{ env.version }}_${abi}.apk"
+                    cp "$file" "PiliPlus_android_${abi}.apk"
                   done
               shell: bash
 
