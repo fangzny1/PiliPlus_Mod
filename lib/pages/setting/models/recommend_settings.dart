@@ -95,26 +95,17 @@ List<SettingsModel> get recommendSettings => [
     },
   ),
   SwitchModel(
-    title: '兴趣标签搜索',
-    subtitle: '开启后可从视频中添加兴趣标签，用于搜索推荐',
+    title: '兴趣标签',
+    subtitle: '开启后可从视频详情菜单中添加兴趣标签',
     leading: const Icon(Icons.local_offer_outlined),
     setKey: SettingBoxKey.interestTagEnabled,
     defaultVal: false,
   ),
-  if (Pref.interestTagEnabled) ...[
-    SwitchModel(
-      title: '自动记录标签',
-      subtitle: '打开视频时自动记录其标签',
-      leading: const Icon(Icons.auto_awesome_outlined),
-      setKey: SettingBoxKey.interestTagMode,
-      defaultVal: true,
-    ),
-    NormalModel(
-      title: '管理兴趣标签',
-      subtitle: '查看、编辑、删除已记录的标签',
-      onTap: (context, _) => Get.toNamed('/interestTags'),
-    ),
-  ],
+  NormalModel(
+    title: '管理兴趣标签',
+    subtitle: '查看、编辑、删除已记录的标签',
+    onTap: (context, _) => Get.toNamed('/interestTags'),
+  ),
   getVideoFilterSelectModel(
     title: '点赞率',
     suffix: '%',

@@ -53,7 +53,6 @@ import 'package:PiliPlus/services/download/download_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/connectivity_utils.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
-import 'package:PiliPlus/utils/interest_tag.dart';
 import 'package:PiliPlus/utils/extension/iterable_ext.dart';
 import 'package:PiliPlus/utils/extension/nested_scroll_ext.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
@@ -386,20 +385,6 @@ class VideoDetailController extends GetxController
       vsync: this,
       initialIndex: Pref.defaultShowComment ? 1 : 0,
     );
-
-    // Auto-record interest tags when auto mode is on
-    if (Pref.interestTagEnabled && Pref.interestTagMode == 'auto') {
-      _autoRecordTags();
-    }
-  }
-
-  Future<void> _autoRecordTags() async {
-    try {
-      final tags = await InterestTagManager.fetchTagsForBvid(bvid);
-      if (tags.isNotEmpty) {
-        InterestTagManager.addTags(tags);
-      }
-    } catch (_) {}
   }
 
   Future<void> getMediaList({
