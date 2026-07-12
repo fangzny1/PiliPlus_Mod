@@ -97,6 +97,14 @@ jobs:
                     echo keyPassword='${{ secrets.KEY_PASSWORD }}' >> android/key.properties
                   fi
 
+            - name: Set build version
+              id: version
+              shell: bash
+              run: |
+                VER=$(grep '^version:' pubspec.yaml | sed 's/version: //' | cut -d+ -f1)
+                echo "name=$VER" >> $GITHUB_OUTPUT
+                echo "time=$(date +%s)" >> $GITHUB_OUTPUT
+
             - name: Set and Extract version
               if: ${{ github.event_name == 'workflow_dispatch' }}
               shell: pwsh
@@ -104,12 +112,23 @@ jobs:
 
             - name: Flutter Build Release Apk
               if: ${{ github.event_name == 'workflow_dispatch' }}
-              run: flutter build apk --release --split-per-abi
+              run: |
+                  flutter build apk --release --split-per-abi \
+                    --build-number=${{ github.run_number }} \
+                    --dart-define=pili.name=${{ steps.version.outputs.name }} \
+                    --dart-define=pili.code=${{ github.run_number }} \
+                    --dart-define=pili.hash=${{ github.sha }} \
+                    --dart-define=pili.time=${{ steps.version.outputs.time }}
 
             - name: Flutter Build Dev Apk
               if: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
               run: |
-                  flutter build apk --release --split-per-abi --build-number=${{ github.run_number }}
+                  flutter build apk --release --split-per-abi \
+                    --build-number=${{ github.run_number }} \
+                    --dart-define=pili.name=${{ steps.version.outputs.name }} \
+                    --dart-define=pili.code=${{ github.run_number }} \
+                    --dart-define=pili.hash=${{ github.sha }} \
+                    --dart-define=pili.time=${{ steps.version.outputs.time }}
 
             - name: Rename
               run: |
