@@ -60,7 +60,18 @@ class RcmdController extends CommonListController {
 
   @override
   void handleListResponse(List dataList) {
-    if (Pref.useDiscoverRcmd) return;
+    if (Pref.useDiscoverRcmd) {
+      // In discover mode the data is already mixed in customGetData,
+      // but we still track the marker so the "看到这里" card shows.
+      if (enableSaveLastData && savedRcmdTip && page == 0) {
+        if (loadingState.value case Success(:final response)) {
+          if (response != null && response.isNotEmpty) {
+            lastRefreshAt = dataList.length;
+          }
+        }
+      }
+      return;
+    }
     if (enableSaveLastData && page == 0) {
       if (loadingState.value case Success(:final response)) {
         if (response != null && response.isNotEmpty) {
