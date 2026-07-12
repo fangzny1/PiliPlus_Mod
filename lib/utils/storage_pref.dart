@@ -892,9 +892,6 @@ abstract final class Pref {
   static bool get interestTagEnabled =>
       _setting.get(SettingBoxKey.interestTagEnabled, defaultValue: false);
 
-  static String get interestTagMode =>
-      _setting.get(SettingBoxKey.interestTagMode, defaultValue: 'manual');
-
   static double get defaultToastOp =>
       _setting.get(SettingBoxKey.defaultToastOp, defaultValue: 1.0);
 
