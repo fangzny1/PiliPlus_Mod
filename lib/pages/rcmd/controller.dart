@@ -1,5 +1,6 @@
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/video.dart';
+import 'package:PiliPlus/models/model_video.dart';
 import 'package:PiliPlus/pages/common/common_list_controller.dart';
 import 'package:PiliPlus/utils/rcmd_discover.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
@@ -10,14 +11,8 @@ class RcmdController extends CommonListController {
   int? lastRefreshAt;
   late bool savedRcmdTip = Pref.savedRcmdTip;
 
-  // Used only when discover mode is active.
-  bool _discoverEnd = false;
-
-  /// When discover mode is on, [isEnd] is controlled by [_discoverEnd]
-  /// instead of the base class, so the infinite-scroll behaviour of the
-  /// stock feed doesn't trigger load-more for the single-batch engine.
   @override
-  bool get isEnd => Pref.useDiscoverRcmd ? _discoverEnd : false;
+  bool get isEnd => false;
 
   @override
   void onInit() {
@@ -28,17 +23,37 @@ class RcmdController extends CommonListController {
 
   @override
   Future<LoadingState> customGetData() async {
-    if (Pref.useDiscoverRcmd) {
-      if (page > 0) {
-        _discoverEnd = true;
-        return const Success([]);
+    if (Pref.useDiscoverRcmd && page == 0) {
+      // Keep the app rcmd as the base and inject discover items into it.
+      final discoverFuture = RcmdDiscoverEngine.fetch(count: 20);
+      final rcmdRes = await VideoHttp.rcmdVideoListApp(freshIdx: 0);
+      final discoverItems = await discoverFuture;
+
+      if (rcmdRes case Success(:final response)) {
+        if (discoverItems.isEmpty) return Success(response);
+        return Success(_mixFeed(response, discoverItems));
       }
-      _discoverEnd = false;
-      return Success(await RcmdDiscoverEngine.fetch());
+      return rcmdRes;
     }
     return appRcmd
         ? VideoHttp.rcmdVideoListApp(freshIdx: page)
         : VideoHttp.rcmdVideoList(freshIdx: page, ps: 20);
+  }
+
+  /// Insert [discover] items into [base] at regular intervals.
+  static List<BaseSimpleVideoItemModel> _mixFeed(
+    List base,
+    List<BaseSimpleVideoItemModel> discover,
+  ) {
+    final mixed = <BaseSimpleVideoItemModel>[...base];
+    var di = 0;
+    for (var i = 0; i < mixed.length && di < discover.length; i++) {
+      if ((i + 1) % 5 == 0) {
+        mixed.insert(i + 1, discover[di++]);
+      }
+    }
+    mixed.addAll(discover.skip(di));
+    return mixed;
   }
 
   @override
@@ -66,7 +81,6 @@ class RcmdController extends CommonListController {
   @override
   Future<void> onRefresh() {
     page = 0;
-    _discoverEnd = false;
     return queryData();
   }
 }

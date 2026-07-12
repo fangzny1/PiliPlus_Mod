@@ -14,13 +14,15 @@ import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/recommend_filter.dart';
 import 'package:PiliPlus/utils/storage.dart';
 
-/// A local recommendation engine that discovers videos from followed UPs
-/// and related video expansion, then filters watched history.
+/// Fetches a batch of videos from random followed UPs and related expansion.
+/// Used by [RcmdController] to inject into the app rcmd feed.
 class RcmdDiscoverEngine {
   static final _random = Random();
 
-  /// Generates a fresh batch of up to 60 videos.
-  static Future<List<BaseSimpleVideoItemModel>> fetch() async {
+  /// Returns up to [count] discover videos (default 20).
+  static Future<List<BaseSimpleVideoItemModel>> fetch({
+    int count = 20,
+  }) async {
     final mids = await _getFollowMids();
     if (mids.isEmpty) return [];
 
@@ -31,7 +33,7 @@ class RcmdDiscoverEngine {
     }
     if (pool.isEmpty) return [];
 
-    // Use one space video as seed for related expansion
+    // Use one as seed for related expansion
     final seed = pool[_random.nextInt(min(pool.length, 2))];
     final related = await _fetchRelated(seed.bvid ?? '');
     pool.addAll(related);
@@ -40,17 +42,15 @@ class RcmdDiscoverEngine {
     final watched = await _getWatchedBvids();
     pool.removeWhere((v) => v.bvid != null && watched.contains(v.bvid));
 
-    // Apply title keyword filter
+    // Apply keyword filter
     if (RecommendFilter.enableFilter) {
       pool.removeWhere((v) => RecommendFilter.filterTitle(v.title));
     }
 
-    // Shuffle and cap
     pool.shuffle(_random);
-    return pool.take(60).toList();
+    return pool.take(count).toList();
   }
 
-  /// Pick [n] random mids from the follow list.
   static List<int> _pickUps(List<int> mids, int n) {
     if (mids.length <= n) return [...mids];
     final picked = <int>{};
@@ -60,7 +60,7 @@ class RcmdDiscoverEngine {
     return picked.toList();
   }
 
-  // ──────────────────────────── caches ────────────────────────────
+  // ──────────────── caches ────────────────
 
   static final _cache = GStorage.localCache;
 
@@ -69,8 +69,6 @@ class RcmdDiscoverEngine {
     if (ts == 0) return false;
     return DateTime.now().millisecondsSinceEpoch - ts < maxAge.inMilliseconds;
   }
-
-  // ── Follow mids (30 min cache) ──
 
   static Future<List<int>> _getFollowMids() async {
     const key = 'disc_follow_mids';
@@ -101,8 +99,6 @@ class RcmdDiscoverEngine {
     return [];
   }
 
-  // ── Watched BVIDs (5 min cache) ──
-
   static Future<Set<String>> _getWatchedBvids() async {
     const key = 'disc_history';
     const timeKey = 'disc_history_time';
@@ -119,15 +115,13 @@ class RcmdDiscoverEngine {
         if (item.history?.bvid case final bvid?) bvids.add(bvid);
       }
     }
-
     _cache.put(key, bvids.toList());
     _cache.put(timeKey, DateTime.now().millisecondsSinceEpoch);
     return bvids;
   }
 
-  // ──────────────────────────── API calls ────────────────────────────
+  // ──────────────── API calls ────────────────
 
-  /// UP space videos (random page 1-3).
   static Future<List<SpaceArchiveItem>> _fetchSpace(int mid) async {
     if (mid == 0) return [];
     final pn = _random.nextInt(3) + 1;
@@ -137,25 +131,30 @@ class RcmdDiscoverEngine {
       pn: pn,
     );
     if (res case Success(:final response)) {
-      return response.item ?? [];
+      final items = response.item ?? [];
+      // SpaceArchiveItem hardcodes owner.mid = 0; fix it
+      for (final item in items) {
+        item.owner = Owner(mid: mid, name: item.owner.name);
+      }
+      return items;
     }
     return [];
   }
 
-  /// Related videos from a seed BVID.
   static Future<List<BaseSimpleVideoItemModel>> _fetchRelated(
     String bvid,
   ) async {
     if (bvid.isEmpty) return [];
     final res = await vhttp.VideoHttp.relatedVideoList(bvid: bvid);
     if (res case Success(:final response)) {
-      return response?.map((h) => _WrappedHotVideo(h)).toList() ?? [];
+      return (response ?? [])
+          .map((h) => _WrappedHotVideo(h))
+          .toList();
     }
     return [];
   }
 }
 
-/// Adapts [HotVideoItemModel] to [BaseSimpleVideoItemModel].
 class _WrappedHotVideo extends BaseSimpleVideoItemModel {
   _WrappedHotVideo(HotVideoItemModel src) {
     title = src.title ?? '';
@@ -163,7 +162,7 @@ class _WrappedHotVideo extends BaseSimpleVideoItemModel {
     cid = src.cid;
     cover = src.cover;
     duration = src.duration ?? -1;
-    owner = Owner(mid: src.owner?.mid, name: src.owner?.name);
+    owner = Owner(mid: src.owner!.mid, name: src.owner?.name);
     stat = src.stat ?? Stat.fromJson({'view': 0, 'like': 0, 'danmaku': 0});
   }
 }
