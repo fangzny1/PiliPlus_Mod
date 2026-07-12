@@ -3,6 +3,7 @@ import 'package:PiliPlus/pages/rcmd/controller.dart';
 import 'package:PiliPlus/pages/setting/models/model.dart';
 import 'package:PiliPlus/utils/recommend_filter.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -24,6 +25,39 @@ List<SettingsModel> get recommendSettings => [
     defaultVal: false,
     onChanged: (value) {
       if (value) {
+        Get.find<RcmdController>().onRefresh();
+      }
+    },
+  ),
+  getVideoFilterSelectModel(
+    title: '发现: 采样UP数',
+    subtitle: '每次刷新随机抽几个关注UP获取视频',
+    key: SettingBoxKey.discoverUpCount,
+    values: [1, 2, 3, 4, 5],
+    onChanged: (_) => Get.find<RcmdController>().onRefresh(),
+  ),
+  getVideoFilterSelectModel(
+    title: '发现: 每批总量',
+    subtitle: '每次注入到推荐流的发现视频数量',
+    key: SettingBoxKey.discoverBatchSize,
+    values: [10, 15, 20, 25, 30, 40],
+    onChanged: (_) => Get.find<RcmdController>().onRefresh(),
+  ),
+  getVideoFilterSelectModel(
+    title: '发现: 混入间隔',
+    subtitle: '每N条手机推荐插入1条发现视频（越小发现越多）',
+    key: SettingBoxKey.discoverMixInterval,
+    values: [3, 4, 5, 6, 8, 10],
+    onChanged: (_) => Get.find<RcmdController>().onRefresh(),
+  ),
+  SwitchModel(
+    title: '发现: 相关视频展开',
+    subtitle: '从采样视频中继续展开相关视频推荐',
+    leading: const Icon(Icons.account_tree_outlined),
+    setKey: SettingBoxKey.discoverRelatedExpand,
+    defaultVal: true,
+    onChanged: (value) {
+      if (Pref.useDiscoverRcmd) {
         Get.find<RcmdController>().onRefresh();
       }
     },

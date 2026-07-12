@@ -24,10 +24,8 @@ class RcmdController extends CommonListController {
   @override
   Future<LoadingState> customGetData() async {
     if (Pref.useDiscoverRcmd && page == 0) {
-      // Keep the app rcmd as the base and inject discover items into it.
-      final discoverFuture = RcmdDiscoverEngine.fetch(count: 20);
       final rcmdRes = await VideoHttp.rcmdVideoListApp(freshIdx: 0);
-      final discoverItems = await discoverFuture;
+      final discoverItems = await RcmdDiscoverEngine.fetch();
 
       if (rcmdRes case Success(:final response)) {
         if (discoverItems.isEmpty) return Success(response);
@@ -40,15 +38,16 @@ class RcmdController extends CommonListController {
         : VideoHttp.rcmdVideoList(freshIdx: page, ps: 20);
   }
 
-  /// Insert [discover] items into [base] at regular intervals.
+  /// Insert [discover] items into [base] at [Pref.discoverMixInterval].
   static List<BaseSimpleVideoItemModel> _mixFeed(
     List base,
     List<BaseSimpleVideoItemModel> discover,
   ) {
+    final interval = Pref.discoverMixInterval.clamp(2, 15);
     final mixed = <BaseSimpleVideoItemModel>[...base];
     var di = 0;
     for (var i = 0; i < mixed.length && di < discover.length; i++) {
-      if ((i + 1) % 5 == 0) {
+      if ((i + 1) % interval == 0) {
         mixed.insert(i + 1, discover[di++]);
       }
     }

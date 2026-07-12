@@ -14,44 +14,80 @@ import 'package:PiliPlus/models_new/space/space_archive/item.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/recommend_filter.dart';
 import 'package:PiliPlus/utils/storage.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 
 /// Fetches videos from random followed UPs and related expansion,
-/// wrapped as [BaseRcmdVideoItemModel] so they slot directly into
-/// the existing [VideoCardV] feed.
+/// wrapped as [BaseRcmdVideoItemModel] for direct use in [VideoCardV].
 class RcmdDiscoverEngine {
   static final _random = Random();
 
-  /// Returns up to [count] discover items.
-  static Future<List<BaseRcmdVideoItemModel>> fetch({int count = 20}) async {
+  /// Returns up to [Pref.discoverBatchSize] items.
+  static Future<List<BaseRcmdVideoItemModel>> fetch() async {
     final mids = await _getFollowMids();
     if (mids.isEmpty) return [];
 
-    final pool = <BaseRcmdVideoItemModel>[];
-    for (final mid in _pickUps(mids, 2)) {
-      final videos = await _fetchSpace(mid);
-      pool.addAll(videos);
+    final upCount = Pref.discoverUpCount.clamp(1, 5);
+    final batchSize = Pref.discoverBatchSize.clamp(5, 60);
+
+    // ── 1. UP space videos ──
+    final upVideos = <BaseRcmdVideoItemModel>[];
+    for (final mid in _pickUps(mids, upCount)) {
+      upVideos.addAll(await _fetchSpace(mid));
     }
-    if (pool.isEmpty) return [];
 
-    final seed = pool[_random.nextInt(min(pool.length, 2))];
-    final related = await _fetchRelated(seed.bvid ?? '');
-    pool.addAll(related);
+    // ── 2. Related-video expansion from several seeds ──
+    final relatedVideos = <BaseRcmdVideoItemModel>[];
+    if (Pref.discoverRelatedExpand && upVideos.isNotEmpty) {
+      final seedCount = min(upCount, upVideos.length);
+      final seeds = _pickRandomItems(upVideos, seedCount);
+      for (final seed in seeds) {
+        if (seed.bvid != null) {
+          relatedVideos.addAll(await _fetchRelated(seed.bvid!));
+        }
+        if (relatedVideos.length >= batchSize) break;
+      }
+    }
 
+    // ── 3. Filter watched ──
     final watched = await _getWatchedBvids();
-    pool.removeWhere((v) => v.bvid != null && watched.contains(v.bvid));
+    upVideos.removeWhere((v) => watched.contains(v.bvid));
+    relatedVideos.removeWhere((v) => watched.contains(v.bvid));
 
+    // ── 4. Apply keyword filter ──
     if (RecommendFilter.enableFilter) {
-      pool.removeWhere((v) => RecommendFilter.filterTitle(v.title));
+      upVideos.removeWhere((v) => RecommendFilter.filterTitle(v.title));
+      relatedVideos.removeWhere((v) => RecommendFilter.filterTitle(v.title));
     }
 
-    pool.shuffle(_random);
-    return pool.take(count).toList();
+    // ── 5. Interleave UP & related before shuffling ──
+    //     (so the feed isn't all-space-then-all-related)
+    final interleaved = <BaseRcmdVideoItemModel>[];
+    var ui = 0, ri = 0;
+    while (ui < upVideos.length || ri < relatedVideos.length) {
+      if (ui < upVideos.length) interleaved.add(upVideos[ui++]);
+      if (ri < relatedVideos.length) interleaved.add(relatedVideos[ri++]);
+    }
+    interleaved.shuffle(_random);
+    return interleaved.take(batchSize).toList();
   }
+
+  // ──────────────── helpers ────────────────
 
   static List<int> _pickUps(List<int> mids, int n) {
     if (mids.length <= n) return [...mids];
     final picked = <int>{};
-    while (picked.length < n) picked.add(mids[_random.nextInt(mids.length)]);
+    while (picked.length < n) {
+      picked.add(mids[_random.nextInt(mids.length)]);
+    }
+    return picked.toList();
+  }
+
+  static List<T> _pickRandomItems<T>(List<T> items, int n) {
+    if (items.length <= n) return [...items];
+    final picked = <T>{};
+    while (picked.length < n) {
+      picked.add(items[_random.nextInt(items.length)]);
+    }
     return picked.toList();
   }
 
@@ -150,7 +186,6 @@ class DiscoverRcmdItem extends BaseRcmdVideoItemModel {
     int durationVal = -1,
     required BaseOwner ownerVal,
     required BaseStat statVal,
-    String? gotoVal,
   }) {
     title = titleVal;
     bvid = bvidVal;
@@ -159,7 +194,7 @@ class DiscoverRcmdItem extends BaseRcmdVideoItemModel {
     duration = durationVal;
     owner = ownerVal;
     stat = statVal;
-    goto = gotoVal ?? 'av';
+    goto = 'av';
   }
 
   factory DiscoverRcmdItem.fromSpace(SpaceArchiveItem src, int ownerMid) {

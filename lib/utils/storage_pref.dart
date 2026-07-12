@@ -877,6 +877,18 @@ abstract final class Pref {
   static bool get useDiscoverRcmd =>
       _setting.get(SettingBoxKey.useDiscoverRcmd, defaultValue: false);
 
+  static int get discoverUpCount =>
+      _setting.get(SettingBoxKey.discoverUpCount, defaultValue: 2);
+
+  static int get discoverBatchSize =>
+      _setting.get(SettingBoxKey.discoverBatchSize, defaultValue: 20);
+
+  static int get discoverMixInterval =>
+      _setting.get(SettingBoxKey.discoverMixInterval, defaultValue: 5);
+
+  static bool get discoverRelatedExpand =>
+      _setting.get(SettingBoxKey.discoverRelatedExpand, defaultValue: true);
+
   static double get defaultToastOp =>
       _setting.get(SettingBoxKey.defaultToastOp, defaultValue: 1.0);
 
