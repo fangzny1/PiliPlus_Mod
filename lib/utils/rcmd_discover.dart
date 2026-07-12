@@ -59,7 +59,18 @@ class RcmdDiscoverEngine {
       relatedVideos.removeWhere((v) => RecommendFilter.filterTitle(v.title));
     }
 
-    // ── 5. Interleave UP & related before shuffling ──
+    // ── 5. Deduplicate by BVID ──
+    final seen = <String>{};
+    upVideos.removeWhere((v) {
+      if (v.bvid == null) return false;
+      return !seen.add(v.bvid!);
+    });
+    relatedVideos.removeWhere((v) {
+      if (v.bvid == null) return false;
+      return !seen.add(v.bvid!);
+    });
+
+    // ── 6. Interleave UP & related before shuffling ──
     //     (so the feed isn't all-space-then-all-related)
     final interleaved = <BaseRcmdVideoItemModel>[];
     var ui = 0, ri = 0;
